@@ -1,4 +1,4 @@
-import { Post, User } from "../models";
+import { Comment, Post, User } from "../models";
 
 export const Resolvers = {
     Query:{
@@ -11,7 +11,10 @@ export const Resolvers = {
                     }
                 ]
             });
-            return users;
+            return {
+                totalUser:users.length,
+                users
+            }
         },
 
         posts: async() => {
@@ -20,10 +23,17 @@ export const Resolvers = {
                     {
                         model:User,
                         as:'creator'
+                    },
+                    {
+                        model:Comment,
+                        as:'comments'
                     }
                 ]
             });
-            return posts;
+            return {
+                totalPost:posts.length,
+                posts
+            }
         },
     
         user: async(_:any, args:any) => {
@@ -34,7 +44,16 @@ export const Resolvers = {
         post: async(_:any, args:any) => {
             const post = await Post.findByPk(args.post_id);
             return post;
-        }
+        },
+
+        comments: async(_:any, args:any) => {
+            const comments = await Comment.findAll({
+                where:{
+                    post_id:args.post_id
+                }
+            });
+            return comments;
+        },
     },
     Mutation:{
         createUser: async(_:any, args:any) => {
@@ -70,12 +89,29 @@ export const Resolvers = {
             const post = await Post.findByPk(args.post_id);
             post?.destroy();
             return post;
+        },
+
+        createComment: async(_:any, args:any) => {
+            const comment = await Comment.create({
+                message:args.message,
+                post_id:args.post_id,
+                user_id:args.user_id
+            });
+            return comment;
         }
     },
     Post:{
         creator: async(parent:any) => {
             const creator= await User.findByPk(parent.creator_id);
             return creator;
+        },
+        comments: async(parent:any) => {
+            const comments = await Comment.findAll({
+                where:{
+                    post_id:parent.post_id
+                }
+            });
+            return comments;
         }
     },
     User:{
@@ -86,6 +122,12 @@ export const Resolvers = {
                 }
             });
             return posts;
+        }
+    },
+    Comment:{
+        creator:async(parent:any) => {
+            const user = await User.findByPk(parent.user_id);
+            return user;
         }
     }
 }
