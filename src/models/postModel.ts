@@ -1,9 +1,18 @@
-import { DataTypes } from "sequelize";
+import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from "sequelize";
 import sequelize from "../config/db";
 import User from "./userModel";
-import Comment from "./commentModel";
 
-const Post = sequelize.define('Post', {
+class Post extends Model<InferAttributes<Post, { omit: 'createdAt' | 'updatedAt' }>, InferCreationAttributes<Post>> {
+    declare post_id: CreationOptional<number>;
+    declare title: string;
+    declare content: string;
+    declare creator_id: number;
+
+    declare createdAt:CreationOptional<Date>;
+    declare updatedAt:CreationOptional<Date>;
+}
+
+Post.init({
     post_id:{
         type: DataTypes.INTEGER,
         autoIncrement: true,
@@ -24,8 +33,11 @@ const Post = sequelize.define('Post', {
             model: User,
             key: 'user_id'
         }
-    }
-    
-});
+    },
+},{
+    sequelize,
+    modelName: 'Post',
+    tableName: 'Posts',
+})
 
 export default Post;

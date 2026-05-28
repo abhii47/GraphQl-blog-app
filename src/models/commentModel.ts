@@ -1,9 +1,19 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Model, InferAttributes, InferCreationAttributes, CreationOptional } from "sequelize";
 import sequelize from "../config/db";
 import Post from "./postModel";
 import User from "./userModel";
 
-const Comment = sequelize.define('Comment', {
+class Comment extends Model<InferAttributes<Comment, { omit: 'createdAt' | 'updatedAt' }>, InferCreationAttributes<Comment>>{
+    declare comment_id: CreationOptional<number>;
+    declare message: string;
+    declare post_id: number;
+    declare user_id: number;
+
+    declare createdAt:CreationOptional<Date>;
+    declare updatedAt:CreationOptional<Date>;
+}
+
+Comment.init({
     comment_id:{
         type: DataTypes.INTEGER,
         autoIncrement: true,
@@ -28,7 +38,11 @@ const Comment = sequelize.define('Comment', {
             model:User,
             key:'user_id'
         }
-    }
-});
+    },
+},{
+    sequelize,
+    modelName: 'Comment',
+    tableName: 'Comments'
+})
 
 export default Comment;
