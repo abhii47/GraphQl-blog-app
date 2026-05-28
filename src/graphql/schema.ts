@@ -38,6 +38,13 @@ export const typeDefs = `#graphql
         createUser(
             name:String!
         ):User
+        updateUser(
+            user_id:ID!
+            name:String!
+        ):User
+        deleteUser(
+            user_id:ID!
+        ):User
         createPost(
             title:String!
             content:String! 
@@ -56,5 +63,12 @@ export const typeDefs = `#graphql
             post_id:ID!
             user_id:ID!
         ):Comment
-    }
+        updateComment(
+            comment_id:ID!
+            message:String!
+        ):Comment
+        deleteComment(
+            comment_id:ID!
+        ):Comment
+   }
 `

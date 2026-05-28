@@ -63,6 +63,24 @@ export const Resolvers = {
             return user;
         },
 
+        updateUser: async(_:any, args:any) => {
+            await User.update({
+                name:args.name
+            },{
+                where:{
+                    user_id:args.user_id
+                }
+            });
+            const user = await User.findByPk(args.user_id);
+            return user;
+        },
+
+        deleteUser: async(_:any, args:any) => {
+            const user = await User.findByPk(args.user_id);
+            user?.destroy();
+            return user;
+        },
+
         createPost: async(_:any, args:any) => {
             const post = await Post.create({
                 title:args.title,
@@ -97,6 +115,24 @@ export const Resolvers = {
                 post_id:args.post_id,
                 user_id:args.user_id
             });
+            return comment;
+        },
+
+        updateComment: async(_:any, args:any) => {
+            await Comment.update({
+                message:args.message
+            },{
+                where:{
+                    comment_id:args.comment_id
+                }
+            });
+            const comment = await Comment.findByPk(args.comment_id);
+            return comment;
+        },
+
+        deleteComment: async(_:any, args:any) => {
+            const comment = await Comment.findByPk(args.comment_id);
+            comment?.destroy();
             return comment;
         }
     },
