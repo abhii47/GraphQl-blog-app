@@ -2,61 +2,83 @@ import { Comment, Post, User } from "../models";
 import { LoginParams, RegisterParams } from "../types";
 import bcrypt from 'bcrypt';
 import { generateToken } from "../utils/token";
+import { isAuthentication } from "../utils/auth";
+import { DateTimeISOResolver } from "graphql-scalars";
 
 export const Resolvers = {
+    Date:DateTimeISOResolver,
     Query:{
-        // users: async () => {
-        //     const users = await User.findAll({
-        //         include: [
-        //             {
-        //                 model:Post,
-        //                 as:'posts'
-        //             }
-        //         ]
-        //     });
-        //     return {
-        //         totalUser:users.length,
-        //         users
-        //     }
-        // },
-
-        // posts: async() => {
-        //     const posts = await Post.findAll({
-        //         include:[
-        //             {
-        //                 model:User,
-        //                 as:'creator'
-        //             },
-        //             {
-        //                 model:Comment,
-        //                 as:'comments'
-        //             }
-        //         ]
-        //     });
-        //     return {
-        //         totalPost:posts.length,
-        //         posts
-        //     }
-        // },
-    
-        user: async(_:any, args:any) => {
-            const user = await User.findByPk(args.user_id);
+        posts: async(_:any, args:any, context:any) => {
+            isAuthentication(context);
+            const { count, rows } = await Post.findAndCountAll({
+                limit:args.limit,
+                offset:args.offset,
+                include:[
+                    {
+                        model:User,
+                        as:'creator',
+                    },
+                    {
+                        model:Comment,
+                        as:'comments',
+                        include:[
+                            {
+                                model:User,
+                                as:'creator'
+                            }
+                        ]
+                    }
+                ],
+                distinct:true,
+                order:[['createdAt','DESC']]
+            });
+            return {
+                count,
+                rows
+            };
+        },
+        me: async(_:any, __:any, context:any) => {
+            const userData = isAuthentication(context);
+            const user = await User.findByPk(userData.user_id);
             return user;
         },
+        getPosts: async(_:any, __:any, context:any) => {
+            const user = isAuthentication(context);
+            const posts = await Post.findAll({
+                where:{
+                    creator_id:user.user_id
+                }
+            });
+            return posts;
+        },
+        getPost: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const post = await Post.findByPk(args.post_id);
+            return post;
+        },
+        listUser: async(_:any, __:any, context:any) => {
+            isAuthentication(context);
+            const users = await User.findAll();
+            return users;
+        },
+        getUser: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const userData = await User.findOne({
+                where:{
+                    user_id:args.user_id
+                },
+                attributes:['user_id', 'name'],
+                include:[
+                    {
+                        model:Post,
+                        as:'posts'
+                    }
+                ]
+            });
+            return userData;
+        },
 
-        // post: async(_:any, args:any) => {
-        //     const post = await Post.findByPk(args.post_id);
-        //     return post;
-        // },
 
-        // comments: async(_:any, args:any) => {
-        //     const comments = await Comment.findAll({
-        //         where:{
-        //             post_id:args.post_id
-        //         }
-        //     });
-        //     return comments;
-        // },
     },
     Mutation:{
         register: async(_:any, args:RegisterParams) => {
@@ -79,7 +101,6 @@ export const Resolvers = {
             });
             return user;
         },
-
         login: async(_:any, args:LoginParams) => {
             const user = await User.findOne({
                 where:{
@@ -88,6 +109,9 @@ export const Resolvers = {
             });
             if(!user){
                 throw new Error('user not found');
+            }
+            if(!user.password){
+                throw new Error('legacy data found');
             }
             const isMatch = await bcrypt.compare(args.password, user.password);
             if(!isMatch){
@@ -105,35 +129,117 @@ export const Resolvers = {
                 user
             }
         },
+        changePassword: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const userData = await User.findByPk(user.user_id);
+            if(!userData){
+                throw new Error('user not found');
+            }
+            const isMatch = await bcrypt.compare(args.old, userData.password);
+            if(!isMatch){
+                throw new Error('password is incorrect');
+            }
+            const hashPass = await bcrypt.hash(args.new, 10);
+            await userData.update({
+                password:hashPass,
+            });
+            return true;
+        },
+        createPost: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const post = await Post.create({
+                title:args.title,
+                content:args.content,
+                creator_id:user.user_id
+            });
+            return post;
+        },
+        updatePost: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const post = await Post.findByPk(args.post_id);
+            if(!post){
+                throw new Error('post not found');
+            }
+            if(post.creator_id !== user.user_id){
+                throw new Error('Unauthorized');
+            }
+            await post.update({
+                title: args.title ?? post.title,
+                content: args.content ?? post.content
+            });
+            return post;
+        },
+        deletePost: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const post = await Post.findByPk(args.post_id);
+            if(!post){
+                throw new Error('post not found');
+            }
+            if(post.creator_id !== user.user_id){
+                throw new Error('Unauthorized');
+            }
+            await Comment.destroy({
+                where:{
+                    post_id:args.post_id
+                }
+            });
+            await post.destroy();
+            return true;
+        },
+        createComment: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const post = await Post.findByPk(args.post_id);
+            if(!post){
+                throw new Error('post not found');
+            }
+            const comment = await Comment.create({
+                message:args.message,
+                post_id:args.post_id,
+                user_id:user.user_id
+            });
+            return comment;
+        },
+        updateComment: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const comment = await Comment.findByPk(args.comment_id);
+            if(!comment){
+                throw new Error('comment not found');
+            }
+            if(comment.user_id !== user.user_id){
+                throw new Error('Unauthorized');
+            }
+            await comment.update({
+                message: args.message
+            });
+            return comment;
+        },
+        deleteComment: async(_:any, args:any, context:any) => {
+            const user = isAuthentication(context);
+            const comment = await Comment.findByPk(args.comment_id);
+            if(!comment){
+                throw new Error('comment not found');
+            }
+            if(comment.user_id !== user.user_id){
+                throw new Error('Unauthorized');
+            }
+            await comment.destroy();
+            return true;
+        }
     },
-    // Post:{
-    //     creator: async(parent:any) => {
-    //         const creator= await User.findByPk(parent.creator_id);
-    //         return creator;
-    //     },
-    //     comments: async(parent:any) => {
-    //         const comments = await Comment.findAll({
-    //             where:{
-    //                 post_id:parent.post_id
-    //             }
-    //         });
-    //         return comments;
-    //     }
-    // },
-    // User:{
-    //     posts: async(parent:any) => {
-    //         const posts = await Post.findAll({
-    //             where: {
-    //                 creator_id:parent.user_id
-    //             }
-    //         });
-    //         return posts;
-    //     }
-    // },
-    // Comment:{
-    //     creator:async(parent:any) => {
-    //         const user = await User.findByPk(parent.user_id);
-    //         return user;
-    //     }
-    // }
+    Post:{
+        comments: async(parent:any) => {
+            const comments = await Comment.findAll({
+                where:{
+                    post_id:parent.post_id
+                }
+            });
+            return comments;
+        },
+    },
+    Comment:{
+        creator: async(parent:any) => {
+            const user = await User.findByPk(parent.user_id);
+            return user;
+        }
+    }
 }
