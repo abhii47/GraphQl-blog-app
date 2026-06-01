@@ -1,6 +1,8 @@
 import { TokenData } from "../types"
 import jwt from "jsonwebtoken"
 
+const secret = String(process.env.SECRET_KEY);
+
 export const generateToken = (userData: TokenData) => {
     const token = jwt.sign(
         {
@@ -8,11 +10,16 @@ export const generateToken = (userData: TokenData) => {
             name:userData.name,
             email:userData.email
         },
-        process.env.SECRET_KEY as string,
+        secret,
         {
             expiresIn:'24h'
         }
 
     );
     return token;
+}
+
+export const verifyToken = (token:string) => {
+    const data = jwt.verify(token, secret);
+    return data;
 }
