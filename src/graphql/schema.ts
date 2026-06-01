@@ -1,54 +1,82 @@
-export const typeDefs = `#graphql
+export const typeDefs = `#
+    scalar Date
     type User {
         user_id: ID!
         name: String!
-
-        posts: [Post]
+        email: String!
+        createdAt: Date!
+        updatedAt: Date!
     }
-    type UserResponse {
-        totalUser: Int!
-        users: [User]  
+    type UserPosts {
+        user_id: ID!
+        name: String!
+
+        posts:[Post]
+    }
+    type LogResponse {
+        token: String!
+        user: User!  
     }
     type Post {
         post_id: ID!
-        title:String!
-        content:String!
+        title: String!
+        content: String!
+        creator_id: ID!
+        createdAt: Date!
+        updatedAt: Date!
+
+        comments: [Comment]
+    }
+    type posts {
+        post_id: ID!
+        title: String!
+        content: String!
+        createdAt: Date!
+        updatedAt: Date!
 
         creator:User
         comments:[Comment]
     }
-    type PostResponse {
-        totalPost: Int!
-        posts: [Post]
+    type AllPosts {
+        count: Int!
+        rows:[posts]
     }
     type Comment {
-        comment_id:ID!
-        message:String!
+        comment_id: ID!
+        message: String!
+        post_id: ID!
+        createdAt: Date!
+        updatedAt: Date!
 
-        creator:User
-    }
+        creator: User
+    } 
     type Query {
-        users:UserResponse                  #get all users
-        posts:PostResponse                  #get all posts
-        user(user_id:ID!):User              #single user details
-        post(post_id:ID!):Post              #get single post details
-        comments(post_id:ID!):[Comment]     #get all comments for a post
+        posts(limit: Int, offset: Int):AllPosts
+        post(post_id:ID!):Post
+        me:User
+        getPosts:[Post]
+        getPost(post_id:ID!):Post
+        listUser:[User]
+        getUser(user_id:ID!):UserPosts
     }
     type Mutation {
-        createUser(
+        register(
             name:String!
+            email:String!
+            password:String!
         ):User
-        updateUser(
-            user_id:ID!
-            name:String!
-        ):User
-        deleteUser(
-            user_id:ID!
-        ):User
+        login(
+            email:String!
+            password:String!
+        ):LogResponse
+        changePassword(
+            old:String!, 
+            new:String!
+        ):Boolean
+
         createPost(
             title:String!
-            content:String! 
-            creator_id:ID!
+            content:String!
         ):Post
         updatePost(
             post_id:ID!
@@ -57,11 +85,11 @@ export const typeDefs = `#graphql
         ):Post
         deletePost(
             post_id:ID!
-        ):Post
+        ):Boolean
+        
         createComment(
             message:String!
             post_id:ID!
-            user_id:ID!
         ):Comment
         updateComment(
             comment_id:ID!
@@ -69,6 +97,6 @@ export const typeDefs = `#graphql
         ):Comment
         deleteComment(
             comment_id:ID!
-        ):Comment
-   }
+        ):Boolean
+    }
 `
